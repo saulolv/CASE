@@ -1,0 +1,6 @@
+{
+  "name": "vigil-summit-console",
+  "private": true,
+  "scripts": { "dev": "next dev", "build": "next build", "start": "next start" },
+  "dependencies": { "@types/node": "22.14.1", "@types/react": "19.0.12", "@types/react-dom": "19.0.4", "next": "15.5.18", "react": "19.0.0", "react-dom": "19.0.0", "typescript": "5.8.3" }
+}
