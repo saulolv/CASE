@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from .db import Base, engine, get_db
 from .models import AgentRun, AvailabilitySlot, EnrichmentSnapshot, Event, Interaction, Lead, Meeting, SourceDocument
-from .schemas import AgentDecision, AttendanceUpdate, EventQuestion, LeadCreate, LoginRequest, MeetingCreate, ReplyCreate
-from .services import ProviderResult, compose, enrich, persist_decision, provider_for, score
+from .schemas import AttendanceUpdate, EventQuestion, LeadCreate, LoginRequest, MeetingCreate, ReplyCreate
+from .workflow import on_attendance, on_registration, on_reply
 
 app = FastAPI(title="Vigil AI", version="0.2.0")
 app.add_middleware(CORSMiddleware, allow_origins=os.getenv("FRONTEND_ORIGIN", "http://localhost:3000").split(","), allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
@@ -170,7 +170,14 @@ def login(payload: LoginRequest, response: Response):
     account = accounts.get(payload.username)
     if not account or not hmac.compare_digest(payload.password, account[0]):
         raise HTTPException(401, "Credenciais invalidas.")
-    response.set_cookie(COOKIE_NAME, make_token(payload.username, account[1]), httponly=True, secure=os.getenv("COOKIE_SECURE", "false").lower() == "true", samesite="lax", max_age=28800)
+    response.set_cookie(
+        COOKIE_NAME,
+        make_token(payload.username, account[1]),
+        httponly=True,
+        secure=os.getenv("COOKIE_SECURE", "false").lower() == "true",
+        samesite=os.getenv("COOKIE_SAMESITE", "lax"),
+        max_age=28800,
+    )
     return {"username": payload.username, "role": account[1]}
 
 
@@ -195,16 +202,10 @@ def create_lead(payload: LeadCreate, request: Request, db: Session = Depends(get
     data["email"] = email
     data["company_website"] = str(data["company_website"]) if data.get("company_website") else None
     lead = Lead(event_id=event.id, **data, eligible_for_processing=payload.consent_email, status="enriching" if payload.consent_email else "consent_required")
-    db.add(lead); db.commit(); db.refresh(lead)
-    if payload.consent_email:
-        profile = enrich(lead)
-        db.add(EnrichmentSnapshot(lead_id=lead.id, data=profile.__dict__, source=profile.source, confidence=profile.confidence))
-        lead.fit_score, lead.intent_score, lead.engagement_score, lead.total_score, lead.tier = score(lead, profile)
-        lead.status = "confirmation_pending"; db.commit()
-        persist_decision(db, lead, "registration", compose(lead, profile, "registration"))
-    else:
-        db.add(AgentRun(lead_id=lead.id, trigger="registration", decision={"action": "stop_communication", "rationale": ["Consentimento ausente"]}, mode="system", provider="system"))
-        db.commit()
+    db.add(lead)
+    db.commit()
+    db.refresh(lead)
+    on_registration(db, lead)
     return lead_payload(db, lead)
 
 
@@ -237,20 +238,7 @@ def reply(lead_id: str, payload: ReplyCreate, _: Annotated[dict, Depends(require
     lead = db.get(Lead, lead_id)
     if not lead or lead.deleted_at: raise HTTPException(404, "Lead nao encontrado.")
     if lead.status == "opted_out" or not lead.eligible_for_processing: raise HTTPException(409, "Este lead nao pode receber processamento ou comunicacao.")
-    db.add(Interaction(lead_id=lead.id, direction="inbound", kind="lead_reply", content=payload.content))
-    result = provider_for(db).classify(payload.content)
-    intent = result.value.intent if not result.error and result.value.confidence >= .65 else "unknown"
-    if intent == "opt_out":
-        lead.status = "opted_out"; decision = AgentDecision(action="stop_communication", rationale=["Opt-out explicito"], confidence=1)
-    elif intent == "confirm":
-        lead.status = "confirmed"; lead.engagement_score = min(20, lead.engagement_score + 10); lead.total_score = lead.fit_score + lead.intent_score + lead.engagement_score
-        decision = compose(lead, enrich(lead), "confirmed")
-    elif intent == "meeting_interest":
-        lead.status = "meeting_offered"; lead.intent_score = min(30, lead.intent_score + 10); lead.total_score = lead.fit_score + lead.intent_score + lead.engagement_score
-        decision = AgentDecision(action="show_slots", rationale=["Intencao de agendamento detectada"], confidence=result.value.confidence)
-    else:
-        decision = AgentDecision(action="human_review", rationale=["Baixa confianca, timeout, erro ou schema invalido"], confidence=result.value.confidence, requires_human_review=True)
-    db.commit(); persist_decision(db, lead, "reply", decision, result=result)
+    on_reply(db, lead, payload.content)
     return lead_payload(db, lead)
 
 
@@ -259,13 +247,7 @@ def attendance(lead_id: str, payload: AttendanceUpdate, _: Annotated[dict, Depen
     lead = db.get(Lead, lead_id)
     if not lead or lead.deleted_at: raise HTTPException(404, "Lead nao encontrado.")
     if lead.status == "opted_out" or not lead.eligible_for_processing: raise HTTPException(409, "Este lead nao pode avancar no funil.")
-    lead.attendance, lead.demo_interest = ("attended" if payload.attended else "no_show"), payload.demo_interest
-    lead.status = "follow_up_pending" if payload.attended else "no_show"
-    lead.engagement_score = min(20, lead.engagement_score + (10 if payload.attended else 0)); lead.total_score = lead.fit_score + lead.intent_score + lead.engagement_score; db.commit()
-    trigger, profile = ("attendance" if payload.attended else "no_show"), enrich(lead)
-    persist_decision(db, lead, trigger, compose(lead, profile, trigger))
-    if payload.attended and payload.demo_interest:
-        lead.status = "meeting_offered"; db.commit()
+    on_attendance(db, lead, payload.attended, payload.demo_interest)
     return lead_payload(db, lead)
 
 

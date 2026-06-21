@@ -1,6 +1,9 @@
 # Vigil AI
 
-Aplicacao de demonstracao para o Vigil Summit: uma landing publica de inscricao e um console B2B de triagem, decisao segura e auditoria.
+Aplicação de demonstração para o Vigil Summit: landing pública de inscrição e console B2B de triagem, decisão segura e auditoria.
+
+**Documentação completa do case:** [`DOCUMENTACAO_TECNICA.md`](DOCUMENTACAO_TECNICA.md)  
+**Deploy Railway:** [`RAILWAY.md`](RAILWAY.md)
 
 ## Executar localmente
 
@@ -25,19 +28,42 @@ npm run dev
 
 - Landing: http://localhost:3000
 - Console: http://localhost:3000/ops
-- Operador local: configure `DEMO_OPERATOR_USERNAME` e `DEMO_OPERATOR_PASSWORD` no backend.
+- API: http://localhost:8000/docs
+- Operador local: `operator` / `vigil-demo` (configurável no `.env`)
 
-## Principios
+## Modos do agente (Strategy LLM)
 
-- A IA interpreta texto; regras deterministicas autorizam estados e comunicacao.
-- Consentimento ausente e opt-out bloqueiam qualquer acao automatica.
-- A sessao e um cookie HttpOnly emitido pelo backend; a senha nao vai para o bundle.
-- Viewer recebe PII mascarada; operador recebe o dossie completo.
-- O modo demo nao usa chamadas externas. Anthropic permanece opcional e limitado a 20 chamadas persistidas por ambiente.
+| `AGENT_MODE` | Provider | Credencial |
+|--------------|----------|------------|
+| `demo` | Keywords locais | nenhuma |
+| `gemini` | Google Gemini | `GEMINI_API_KEY` |
+| `anthropic` | Claude (preferência do case) | `ANTHROPIC_API_KEY` |
 
-## Validacao
+Para usar Gemini localmente, defina no `backend/.env`:
+
+```env
+AGENT_MODE=gemini
+GEMINI_API_KEY=<sua-chave>
+```
+
+Chave gratuita: [Google AI Studio](https://aistudio.google.com/api-keys)
+
+Para Claude, basta trocar `AGENT_MODE=anthropic` e `ANTHROPIC_API_KEY` — sem alteração de código.
+
+## Princípios
+
+- A IA interpreta texto; regras determinísticas autorizam estados e comunicação.
+- Orquestração nativa em `workflow.py` — sem LangChain; SDK nativo para LLM.
+- Consentimento ausente e opt-out bloqueiam qualquer ação automática.
+- Sessão via cookie HttpOnly; senha não vai para o bundle.
+- Viewer recebe PII mascarada; operador recebe o dossiê completo.
+- Limite de 20 chamadas LLM por provider (`AGENT_CALL_LIMIT`).
+
+## Validação
 
 ```powershell
+cd backend
 python -m pytest
-cd frontend; npm run build
+cd ../frontend
+npm run build
 ```
