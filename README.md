@@ -3,7 +3,7 @@
 Aplicação de demonstração para o Vigil Summit: landing pública de inscrição e console B2B de triagem, decisão segura e auditoria.
 
 **Documentação completa do case:** [`DOCUMENTACAO_TECNICA.md`](DOCUMENTACAO_TECNICA.md)  
-**Deploy Railway:** [`RAILWAY.md`](RAILWAY.md)
+**Deploy Render:** [`RENDER.md`](RENDER.md)
 
 ## Executar localmente
 

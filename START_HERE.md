@@ -47,6 +47,6 @@ Para Claude (preferência do case): `AGENT_MODE=anthropic` + `ANTHROPIC_API_KEY`
 ## Documentação
 
 - Case completo: [`DOCUMENTACAO_TECNICA.md`](DOCUMENTACAO_TECNICA.md)
-- Deploy: [`RAILWAY.md`](RAILWAY.md)
+- Deploy: [`RENDER.md`](RENDER.md)
 
 O funil usa orquestração nativa (`workflow.py`) + playbooks determinísticos. A LLM (Gemini ou Claude) classifica apenas a intenção das respostas — troca de provider via `AGENT_MODE`, sem mudar código.

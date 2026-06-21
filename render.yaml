@@ -1,0 +1,68 @@
+# Blueprint Render — Vigil AI
+# Deploy: Dashboard Render → New → Blueprint → conectar repositório
+# Plano gratuito: web services com spin-down após inatividade; PostgreSQL free (90 dias).
+
+databases:
+  - name: vigil-db
+    databaseName: vigil
+    user: vigil
+    plan: free
+
+services:
+  - type: web
+    name: vigil-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.entrypoint:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.0"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: vigil-db
+          property: connectionString
+      - key: AGENT_MODE
+        value: gemini
+      - key: GEMINI_MODEL
+        value: gemini-2.0-flash
+      - key: AGENT_CALL_LIMIT
+        value: "20"
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: lax
+      - key: DEMO_OPERATOR_USERNAME
+        value: operator
+      - key: DEMO_VIEWER_USERNAME
+        value: viewer
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: DEMO_OPERATOR_PASSWORD
+        sync: false
+      - key: DEMO_VIEWER_PASSWORD
+        sync: false
+
+  - type: web
+    name: vigil-frontend
+    runtime: node
+    rootDir: frontend
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_USE_API_PROXY
+        value: "true"
+      - key: BACKEND_INTERNAL_URL
+        fromService:
+          type: web
+          name: vigil-backend
+          envVarKey: RENDER_EXTERNAL_URL

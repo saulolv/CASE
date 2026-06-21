@@ -150,7 +150,7 @@ AGENT_MODE=demo
 
 | Provider | Vantagem | Uso |
 |----------|----------|-----|
-| Gemini 2.0 Flash | Gratuito, JSON estruturado, baixa latência | Deploy Railway |
+| Gemini 2.0 Flash | Gratuito, JSON estruturado, baixa latência | Deploy Render |
 | Claude 3.5 Haiku | Preferência do case, raciocínio estruturado | Produção com budget |
 | Demo | Sem custo, determinístico | CI e fallback |
 
@@ -159,9 +159,10 @@ AGENT_MODE=demo
 | Tecnologia | Justificativa |
 |------------|---------------|
 | FastAPI | API tipada, async-ready, OpenAPI automático |
-| Next.js 15 | Landing + console com SSR e proxy Railway |
+| Next.js 15 | Landing + console com SSR e proxy Render |
 | SQLAlchemy 2 | ORM maduro, suporte SQLite (dev) e PostgreSQL (prod) |
 | PostgreSQL | Persistência relacional auditável em produção |
+| Render | Deploy gratuito (web services + PostgreSQL); ver [`render.yaml`](render.yaml) e [`RENDER.md`](RENDER.md) |
 
 ---
 
@@ -302,7 +303,7 @@ Dados usados: `name`, `demo_interest`, histórico de interações.
 
 | Dia | Foco | Entregas |
 |-----|------|----------|
-| 1 | Infra + captura | Railway, PostgreSQL, landing, `POST /leads` |
+| 1 | Infra + captura | Render, PostgreSQL, landing, `POST /leads` |
 | 2 | Enriquecimento + playbooks | `enrich`, `score`, mensagens pré-evento |
 | 3 | LLM Strategy | Providers Gemini/Anthropic, classificação de reply |
 | 4 | Pós-evento + agendamento | Attendance, slots, meetings |
@@ -330,7 +331,7 @@ Dados usados: `name`, `demo_interest`, histórico de interações.
 
 ### URLs
 
-- **Produção:** configurar conforme [`RAILWAY.md`](RAILWAY.md)
+- **Produção:** configurar conforme [`RENDER.md`](RENDER.md)
 - **Local:** `http://localhost:3000` (landing), `http://localhost:3000/ops` (console)
 
 ### Credenciais demo
@@ -368,4 +369,6 @@ frontend/
 ├── app/page.tsx        # Landing
 ├── app/ops/            # Console operacional
 └── lib/api.ts          # Cliente API (proxy /backend em prod)
+
+render.yaml             # Blueprint Render (PostgreSQL + backend + frontend)
 ```
