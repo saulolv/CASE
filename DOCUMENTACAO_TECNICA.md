@@ -163,6 +163,17 @@ AGENT_MODE=demo
 | SQLAlchemy 2 | ORM maduro, suporte SQLite (dev) e PostgreSQL (prod) |
 | PostgreSQL | Persistência relacional auditável em produção |
 | Render | Deploy gratuito (web services + PostgreSQL); ver [`render.yaml`](render.yaml) e [`RENDER.md`](RENDER.md) |
+| Docker + Compose | Stack local reproduzível (PostgreSQL 16 + backend + frontend); ver [`docker-compose.yml`](docker-compose.yml) |
+| GitHub Actions | CI em push/PR: `pytest` no backend e `npm run build` no frontend; ver [`.github/workflows/ci.yml`](.github/workflows/ci.yml) |
+
+### Containerização e CI
+
+| Artefato | Função |
+|----------|--------|
+| [`backend/Dockerfile`](backend/Dockerfile) | Imagem Python 3.12-slim; `alembic upgrade head` + `uvicorn` na porta 8000 |
+| [`frontend/Dockerfile`](frontend/Dockerfile) | Build multi-stage Node 20; `npm start` em produção na porta 3000 |
+| [`docker-compose.yml`](docker-compose.yml) | Orquestra `db`, `backend` e `frontend` com healthcheck no Postgres e `AGENT_MODE=demo` |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Pipeline paralelo: backend (Python 3.12 + pytest) e frontend (Node 20 + build) |
 
 ---
 
@@ -192,13 +203,24 @@ erDiagram
 | `agent_runs` | Auditoria de cada decisão do agente |
 | `availability_slots` | Horários para reuniões comerciais |
 | `meetings` | Reuniões agendadas |
-| `source_documents` | Documentos do evento (Q&A estático) |
+| `source_documents` | Documentos do evento (Q&A com busca por termos) |
+
+### Q&A do evento (`POST /event/answer`)
+
+Respostas baseadas exclusivamente em `source_documents` — sem LLM generativo:
+
+1. Tokeniza a pergunta (termos com mais de 2 caracteres).
+2. Ranqueia documentos por contagem de termos presentes em `title` + `excerpt`.
+3. Retorna o excerpt do melhor match e até **3 citações** com título, URL e trecho.
+4. Se nenhum documento tiver match → `requires_human_review: true` e encaminhamento para revisão humana.
 
 ### Validação
 
 - API docs: `/docs`
 - Dashboard: `GET /dashboard` (autenticado)
 - Console: `/ops` com credenciais de operador
+- **CI:** GitHub Actions executa `pytest` (backend) e `npm run build` (frontend) em cada push/PR
+- **Evals de intenção:** `python backend/evals/run.py` mede acurácia do `DemoProvider` contra [`backend/evals/intents.pt-BR.jsonl`](backend/evals/intents.pt-BR.jsonl) (5 casos pt-BR)
 
 ---
 
@@ -332,7 +354,8 @@ Dados usados: `name`, `demo_interest`, histórico de interações.
 ### URLs
 
 - **Produção:** configurar conforme [`RENDER.md`](RENDER.md)
-- **Local:** `http://localhost:3000` (landing), `http://localhost:3000/ops` (console)
+- **Local (dev):** `http://localhost:3000` (landing), `http://localhost:3000/ops` (console)
+- **Local (Docker):** `docker compose up --build` — sobe PostgreSQL, backend (`:8000`) e frontend (`:3000`) com credenciais demo e `AGENT_MODE=demo`
 
 ### Credenciais demo
 
@@ -362,13 +385,23 @@ backend/app/
 ├── providers/          # Strategy LLM (demo, gemini, anthropic)
 ├── workflow.py         # Orquestrador nativo do funil
 ├── services.py         # Enriquecimento, scoring, playbooks
-├── main.py             # Rotas FastAPI
+├── main.py             # Rotas FastAPI (incl. Q&A ranqueado por termos)
 └── models.py           # ORM
+
+backend/evals/
+├── intents.pt-BR.jsonl # Casos de avaliação de classificação de intenção
+└── run.py              # Script de acurácia contra DemoProvider
+
+backend/tests/          # Testes pytest (workflow, providers)
+backend/Dockerfile      # Imagem de produção do backend
 
 frontend/
 ├── app/page.tsx        # Landing
 ├── app/ops/            # Console operacional
 └── lib/api.ts          # Cliente API (proxy /backend em prod)
+frontend/Dockerfile     # Imagem de produção do frontend
 
+docker-compose.yml      # Stack local (db + backend + frontend)
+.github/workflows/ci.yml # Pipeline CI (pytest + build)
 render.yaml             # Blueprint Render (PostgreSQL + backend + frontend)
 ```

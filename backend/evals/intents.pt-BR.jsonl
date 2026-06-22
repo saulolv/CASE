@@ -1,0 +1,5 @@
+{"text":"Confirmo minha presença.","intent":"confirm"}
+{"text":"Por favor, removam meu contato.","intent":"opt_out"}
+{"text":"Quero marcar uma demonstração.","intent":"meeting_interest"}
+{"text":"Qual é a programação do evento?","intent":"question"}
+{"text":"talvez eu va","intent":"unknown"}

@@ -276,9 +276,13 @@ def meeting(payload: MeetingCreate, _: Annotated[dict, Depends(require_operator)
 
 @app.post("/event/answer")
 def answer_event(payload: EventQuestion, _: Annotated[dict, Depends(current_session)], db: Session = Depends(get_db)):
+    terms = {term for term in payload.question.lower().split() if len(term) > 2}
     docs = db.query(SourceDocument).all()
-    if not docs: return {"answer": "Sem evidencia suficiente; encaminhe para revisao humana.", "requires_human_review": True, "citations": []}
-    return {"answer": docs[0].excerpt, "requires_human_review": False, "citations": [{"title": item.title, "url": item.url, "excerpt": item.excerpt} for item in docs[:2]]}
+    ranked = sorted(docs, key=lambda item: sum(term in f"{item.title} {item.excerpt}".lower() for term in terms), reverse=True)
+    evidence = [item for item in ranked if sum(term in f"{item.title} {item.excerpt}".lower() for term in terms) > 0][:3]
+    if not evidence:
+        return {"answer": "Não encontrei evidência suficiente nas fontes permitidas. Encaminhe para revisão humana.", "requires_human_review": True, "citations": []}
+    return {"answer": evidence[0].excerpt, "requires_human_review": False, "citations": [{"title": item.title, "url": item.url, "excerpt": item.excerpt} for item in evidence]}
 
 
 @app.get("/dashboard")
