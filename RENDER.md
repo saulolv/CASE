@@ -58,11 +58,14 @@ Defina manualmente após o primeiro deploy:
 | Health Check Path | `/health`                                                |
 
 
-1. Variáveis de ambiente:
+> **Importante:** defina `PYTHON_VERSION` = `3.12.0` nas env vars. Sem isso o Render usa Python 3.14 e o build do `pydantic-core` falha. O repo inclui `backend/runtime.txt` e `backend/.python-version` como reforço.
+
+3. Variáveis de ambiente:
 
 
 | Variável                 | Valor                                           |
 | ------------------------ | ----------------------------------------------- |
+| `PYTHON_VERSION`         | `3.12.0` **(obrigatório)**                      |
 | `DATABASE_URL`           | URL do PostgreSQL Render                        |
 | `AGENT_MODE`             | `gemini`                                        |
 | `GEMINI_API_KEY`         | Chave do AI Studio                              |
@@ -153,6 +156,7 @@ Nenhuma alteração de código — o padrão Strategy resolve automaticamente.
 
 | Problema                             | Solução                                                                     |
 | ------------------------------------ | --------------------------------------------------------------------------- |
+| Build falha em `pydantic-core` / Rust | Defina `PYTHON_VERSION=3.12.0` no serviço backend; faça redeploy           |
 | Cold start lento                     | Normal no free tier; aguarde ~1 min no primeiro acesso                      |
 | Cookie de sessão não persiste        | `NEXT_PUBLIC_USE_API_PROXY=true`; frontend usa `/backend`                   |
 | CORS error                           | `FRONTEND_ORIGIN` no backend = URL exata do frontend                        |
